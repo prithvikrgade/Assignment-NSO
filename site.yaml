@@ -1,0 +1,73 @@
+-#this task is to copy the public ssh key of the bastion host to the 
+webservers
+ hosts: DevA,DevB,DevC
+  become: yes
+  tasks:
+    - name: Create .ssh directory
+      file:
+        path: ~/.ssh
+        state: directory
+        mode: "0700"
+
+    - name: Add SSH key to authorized_keys
+      authorized_key:
+        user: ubuntu
+        state: present
+        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+# Installs and configures haproxy on the haproxy host
+- hosts: haproxy
+  become: yes
+  tasks:
+    - name: Install HAproxy
+      apt:
+        name: haproxy
+        state: present
+      notify: restart haproxy
+
+    - name: Configure HAproxy
+      template:
+        src: haproxy.cfg
+        dest: /etc/haproxy/haproxy.cfg
+      notify: restart haproxy
+# Deploys and tests the flask app on webservers
+- hosts: devA,devB,devC
+  become: yes
+  tasks:
+    - name: Install Python and Flask
+      apt:
+        name:
+          - python3
+          - python3-pip
+        state: present
+
+    - name: Copy Flask app
+      copy:
+        src: app.py
+        dest: /opt/flask-app/app.py
+
+    - name: Start Flask app
+      systemd:
+        name: flask-app.service
+        state: started
+        enabled: yes
+        daemon_reload: yes
+
+- hosts: haproxy
+  tasks:
+    - name: Test HAproxy
+      uri:
+        url: http://{{ hostvars[item]['ansible_default_ipv4']['address'] 
+}}:5000/
+        method: GET
+        status_code: 200
+      with_items:
+        - devA
+        - devB
+        - devC
+
+  handlers:
+    - name: restart haproxy
+      service:
+        name: haproxy
+        state: restarted
+
