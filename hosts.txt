@@ -1,0 +1,11 @@
+[Webservers]
+DevA ansible_host=91.106.198.137 ansible_user=ubuntu
+DevB ansible_host=91.106.198.208 ansible_user=ubuntu
+DevC ansible_host=91.106.198.145 ansible_user=ubuntu
+
+[Bastionserver]
+BastionNSO ansible_host=91.106.198.223 ansible_user=ubuntu
+
+[HAproxyserver]
+HAproxy ansible_host=188.95.231.145 ansible_user=ubuntu
+
