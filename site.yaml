@@ -1,6 +1,4 @@
--#this task is to copy the public ssh key of the bastion host to the 
-webservers
- hosts: DevA,DevB,DevC
+- hosts: DevA,DevB,DevC
   become: yes
   tasks:
     - name: Create .ssh directory
@@ -18,19 +16,19 @@ webservers
 - hosts: haproxy
   become: yes
   tasks:
-    - name: Install HAproxy
+    - name: Install haproxy
       apt:
         name: haproxy
         state: present
       notify: restart haproxy
 
-    - name: Configure HAproxy
+    - name: Configure haproxy
       template:
         src: haproxy.cfg
         dest: /etc/haproxy/haproxy.cfg
       notify: restart haproxy
 # Deploys and tests the flask app on webservers
-- hosts: devA,devB,devC
+- hosts: DevA,DevB,DevC
   become: yes
   tasks:
     - name: Install Python and Flask
@@ -41,33 +39,44 @@ webservers
         state: present
 
     - name: Copy Flask app
+      hosts: DevA, DevB, DevC
+      become: true
+  tasks:
+    - name: Create Flask app directory
+      file:
+        path: /opt/flask-app
+        state: directory
+        mode: 0755
+      changed_when: false
+      check_mode: no
+
+    - name: Copy Flask app files
       copy:
         src: app.py
-        dest: /opt/flask-app/app.py
-
-    - name: Start Flask app
-      systemd:
-        name: flask-app.service
-        state: started
-        enabled: yes
-        daemon_reload: yes
-
+        dest: /opt/flask-app
+      notify:
+        - start flask app
+  handlers:
+   - name: start flask app
+     service:
+      name: app.py
+      state: started
 - hosts: haproxy
+  become: yes
   tasks:
-    - name: Test HAproxy
+    - name: Test haproxy
       uri:
-        url: http://{{ hostvars[item]['ansible_default_ipv4']['address'] 
-}}:5000/
+        url: "http://{{ hostvars[item]['ansible_default_ipv4']['address'] 
+}}:5000/"
         method: GET
         status_code: 200
       with_items:
-        - devA
-        - devB
-        - devC
+        - DevA
+        - DevB
+        - DevC
 
   handlers:
-    - name: restart haproxy
-      service:
-        name: haproxy
-        state: restarted
-
+  - name: restart haproxy
+    service:
+      name: haproxy
+      state: restarted
