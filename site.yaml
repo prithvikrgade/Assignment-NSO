@@ -1,17 +1,17 @@
-- hosts: DevA,DevB,DevC
+
+- hosts: all
+  gather_facts: yes
   become: yes
   tasks:
-    - name: Create .ssh directory
-      file:
-        path: ~/.ssh
-        state: directory
-        mode: "0700"
+    - name: Update package cache
+      apt:
+        update_cache: yes
 
-    - name: Add SSH key to authorized_keys
-      authorized_key:
-        user: ubuntu
-        state: present
-        key: "{{ lookup('file', '~/.ssh/id_rsa.pub') }}"
+    - name: Upgrade packages
+      apt:
+        upgrade: yes
+        autoremove: yes
+        autoclean: yes
 # Installs and configures haproxy on the haproxy host
 - hosts: haproxy
   become: yes
@@ -24,59 +24,88 @@
 
     - name: Configure haproxy
       template:
-        src: haproxy.cfg
-        dest: /etc/haproxy/haproxy.cfg
+        src: haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg.j2
       notify: restart haproxy
+  handlers:
+    - name: restart haproxy
+      service:
+        name: haproxy
+        state: restarted
 # Deploys and tests the flask app on webservers
 - hosts: DevA,DevB,DevC
   become: yes
   tasks:
-    - name: Install Python and Flask
+    
+    - name: install python3
       apt:
-        name:
-          - python3
-          - python3-pip
-        state: present
+        name: python3
+        state: latest
 
-    - name: Copy Flask app
-      hosts: DevA, DevB, DevC
-      become: true
-  tasks:
-    - name: Create Flask app directory
+    - name: install python3-pip
+      apt:
+         name: python3-pip
+         state: latest
+    - name: create a new directory
       file:
-        path: /opt/flask-app
+        path: /home/ubuntu/flask-app
         state: directory
-        mode: 0755
-      changed_when: false
-      check_mode: no
+        owner: ubuntu
+        group: ubuntu
 
-    - name: Copy Flask app files
+    - name: change directory to flask-app
+      shell: cd /home/ubuntu/flask-app
+
+    - name: Install Flask in virtual environment
+      pip:
+        name: flask
+        state: present
+    - name: Install python3-venv package
+      become: true
+      apt:
+        name: python3-venv
+        state: present
+    - name: create virtual environment
+      shell: python3.8 -m venv /home/ubuntu/flask-app/venv
+
+    - name: create virtual environment directory
+      file:
+        path: /home/ubuntu/flask-app/venv
+        state: directory
+        owner: ubuntu
+        group: ubuntu
+
+    - name: activate virtual environment
+      become: yes
+      become_user: ubuntu
+      shell: . /home/ubuntu/flask-app/venv/bin/activate
+      args:
+        chdir: /home/ubuntu/flask-app
+
+    - name: copy the flask app code to the servers
       copy:
-        src: app.py
-        dest: /opt/flask-app
-      notify:
-        - start flask app
-  handlers:
-   - name: start flask app
-     service:
-      name: app.py
-      state: started
+        src:  app.py
+        dest: /home/ubuntu/flask-app/venv/app.py
+        mode: 0775
+
+    - name: execute the flask-app deployment
+      shell: flask run -h 0.0.0.0 -p 5000
+      async: 500
+      poll: 0
 - hosts: haproxy
   become: yes
-  tasks:
+  tasks:  
     - name: Test haproxy
       uri:
-        url: "http://{{ hostvars[item]['ansible_default_ipv4']['address'] 
+        url: "http://{{ hostvars[item]['ansible_default_ipv4']['address']
 }}:5000/"
         method: GET
-        status_code: 200
-      with_items:
+        return_content: yes
+      register: result  
+      loop:
         - DevA
         - DevB
         - DevC
+      failed_when: result.status != 200
+ 
 
-  handlers:
-  - name: restart haproxy
-    service:
-      name: haproxy
-      state: restarted
