@@ -34,7 +34,7 @@ defaults
         errorfile 504 /etc/haproxy/errors/504.http
 #HAproxy for web servers
 frontend web-frontend
-        bind *:8080
+        bind *:80
         mode http
         default_backend web-backend
 
@@ -47,6 +47,12 @@ backend web-backend
 hostvars[dev_servers]["ansible_default_ipv4"]["address"]}}:8080
    {% endfor %}
 
+
+listen stats
+    bind *:8404
+    stats enable
+    stats uri /monito
+    stats refresh 5s
    
    
    
