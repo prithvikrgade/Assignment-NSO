@@ -64,13 +64,13 @@
 
     - name: copy the flask app code to the servers
       copy:
-        src:  /$PWD/app.py
-        dest: /home/ubuntu/app.py
+        src:  /$PWD/application2.py
+        dest: /home/ubuntu/application2.py
         owner: ubuntu
         mode: '0644'
            
     - name: execute the flask-app deployment
-      shell: gunicorn -w 2 -D -b 0.0.0.0:8080 app:app
+      shell: gunicorn -w 2 -D -b 0.0.0.0:8080 application2:app
  
 - hosts: HAproxy
   become: yes
