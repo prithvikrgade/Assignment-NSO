@@ -1,2 +1,3 @@
 # Assignment-NSO
-assignment_prga22_ for safety purpose. All of the necessary files are uploaded in the repository so please check the respective places and update accordingly. Please use as needed.
+student: prga22@student.bth.se 
+This repository contains all the necessary files that have been asked for Assignment 2:automation with ansible.  
