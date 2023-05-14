@@ -9,7 +9,7 @@ Host bastionNSO
 
 
 
-Host Haproxy
+Host HAproxy
         HostName 89.42.140.45
         User ubuntu
         IdentityFile ~/.ssh/id_rsa
