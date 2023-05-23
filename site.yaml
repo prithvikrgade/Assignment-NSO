@@ -1,0 +1,161 @@
+- hosts: all
+  gather_facts: yes
+
+- name: Configuring HAproxy
+  hosts: HAproxy
+  become: yes
+  tasks:
+    - name: installing HAproxy
+      apt:
+        name: haproxy
+        update_cache: yes
+        state: latest
+
+    - name: HAproxy configuration for load balance
+      template:
+        src: haproxy.cfg.j2
+        dest: /etc/haproxy/haproxy.cfg
+
+    - name: haproxy restart
+      service:
+        name: "haproxy"
+        state: restarted
+
+    - name: Installing Nginx for UDP services
+      apt:
+        name: nginx
+        update_cache: yes
+        state: latest
+
+    - name: Configuring the Nginx UDP port
+      template:
+        src: nginxport.conf
+        dest: /etc/nginx/sites-available/default
+
+    - name: Nginx configuration for UDP Load Balancing
+      template:
+        src: nginxudp.conf
+        dest: /etc/nginx/nginx.conf
+
+    - name: Restarting Nginx
+      service:
+        name: nginx
+        state: restarted
+
+- name: Web Server configuration
+  hosts: webservers
+  become: yes
+
+  tasks:
+    - name: Update_the_packages
+      apt:
+        update_cache: yes
+
+    - name: Installing NGINX and Flask packages
+      apt:
+        name: ['nginx', 'python3-flask']  # Update with the appropriate package names
+        state: present
+
+
+    - name: install nginx
+      apt:
+        name: nginx
+        state: latest
+
+
+    - name: pip3 installation #python installation using pip3
+      apt:
+        name: python3-pip
+        state: latest
+        update_cache: true
+
+    - name: Installing flask #flask app installation
+      pip:
+        executable: pip3
+        name: flask
+        state: latest
+
+    - name: apt update
+      apt:
+        update_cache: true
+
+    - name: gunicorn installation #gunicorn installation for gateway interface installation
+      pip:
+        executable: pip3
+        name: gunicorn
+        state: latest
+
+    - name: apt update
+      apt:
+        update_cache: true
+    - name: copy flask app code  #copying the code from app.py to flask app
+      copy:
+        src: /$PWD/application2.py
+        dest: /home/ubuntu/application2.py
+        owner: ubuntu
+        mode: '0644'
+
+    - name: Running Flask application #Execute the flask app
+      shell: gunicorn -w 2 -D -b 0.0.0.0:5000 application2:app
+
+    - name: Installing the SNMPd
+      apt:
+        name: snmpd
+        state: latest
+        update_cache: true
+
+    - name: Configuring snmpd
+      template:
+          src: snmpd.conf
+          dest: /etc/snmp/snmpd.conf
+
+    - name: Restarting snmpd
+      service:
+        name: snmpd
+        state: restarted
+
+- name: Testing
+  hosts: HAproxy
+  become: yes
+
+  tasks:
+    - name: Testing the HAproxy load balancing 1st time.
+      shell: "curl localhost"
+      register: "output"
+      args:
+        warn: false
+    - debug: var=output.stdout
+
+    - name: Testing the HAproxy load balancing 2nd time.
+      shell: "curl localhost"
+      register: "output"
+      args:
+        warn: false
+    - debug: var=output.stdout
+
+    - name: Testing the HAproxy load balancing 3rd time.
+      shell: "curl localhost"
+      register: "output"
+      args:
+        warn: false
+    - debug: var=output.stdout
+
+    - name: Install snmpd
+      apt:
+        name: snmp
+        state: latest
+
+    - name: "Testing the SNMP 1st time"
+      shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:1611 iso.3.6.1.2.1.1.1.0"
+      register: "output"
+    - debug: var=output.stdout_lines
+
+    - name: "Testing the SNMP 2nd time"
+      shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:1611 iso.3.6.1.2.1.1.1.0"
+      register: "output"
+    - debug: var=output.stdout_lines
+
+    - name: "Testing the SNMP 3rd time"
+      shell: "snmpwalk -t 1 -r 1 -v2c -c public localhost:1611 iso.3.6.1.2.1.1.1.0"
+      register: "output"
+    - debug: var=output.stdout_lines
